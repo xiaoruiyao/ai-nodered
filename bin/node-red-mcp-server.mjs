@@ -21,6 +21,8 @@ const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 const args = process.argv.slice(2);
 const options = {
   nodeRedUrl: process.env.NODE_RED_URL,
+  nodeRedUsername: process.env.NODE_RED_USERNAME,
+  nodeRedPassword: process.env.NODE_RED_PASSWORD,
   nodeRedToken: process.env.NODE_RED_TOKEN,
   nodeRedUserDir: process.env.NODE_RED_USER_DIR,
   packagesPoolDir: process.env.PACKAGES_POOL_DIR,
@@ -42,7 +44,9 @@ Usage:
 
 Options:
   -u, --url <url>              Node-RED base URL (default: http://localhost:1880)
-  -t, --token <token>          Node-RED API access token
+  -U, --username <user>        Node-RED admin username (for auto login)
+  -P, --password <pass>        Node-RED admin password (for auto login)
+  -t, --token <token>          Node-RED API access token (or Bearer token)
   -m, --transport <type>       Transport type: stdio or sse (default: stdio)
   -p, --port <port>            Port for SSE server (default: 3000)
       --host <host>            Host to bind for SSE server (default: 0.0.0.0)
@@ -62,6 +66,10 @@ for (let i = 0; i < args.length; i++) {
 
   if (arg === '--url' || arg === '-u') {
     options.nodeRedUrl = args[++i];
+  } else if (arg === '--username' || arg === '-U') {
+    options.nodeRedUsername = args[++i];
+  } else if (arg === '--password' || arg === '-P') {
+    options.nodeRedPassword = args[++i];
   } else if (arg === '--token' || arg === '-t') {
     options.nodeRedToken = args[++i];
   } else if (arg === '--transport' || arg === '-m') {
