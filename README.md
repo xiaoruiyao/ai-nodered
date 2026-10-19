@@ -66,7 +66,9 @@ npm run bundle
 ```
 
 执行完毕后，将在 `dist/` 目录下生成：
-- `dist/node-red-mcp-bundle-v1.1.0.tar.gz` (约 1.9MB)
+- `dist/node-red-mcp-bundle-v1.1.0.tar.gz` (约 3.8MB，已包含全量生产 `node_modules` 与剥离 macOS 扩展属性)
+
+> 📖 **更详细的生产部署与反代配置手册**：请参阅 [docs/DEPLOYMENT_GUIDE.md](file:///Users/yaoxiaorui/work/ai-nodered/docs/DEPLOYMENT_GUIDE.md)。
 
 ---
 
@@ -76,16 +78,16 @@ npm run bundle
 
 ```bash
 # 拷贝到服务器
-scp dist/node-red-mcp-bundle-v1.1.0.tar.gz user@your-server:/opt/
+scp dist/node-red-mcp-bundle-v1.1.0.tar.gz root@your-server:/opt/
 
 # 在服务器上解压
-ssh user@your-server
+ssh root@your-server
 mkdir -p /opt/node-red-mcp && cd /opt/node-red-mcp
 tar -xzf /opt/node-red-mcp-bundle-v1.1.0.tar.gz -C .
 
 # 配置环境变量
 cp .env.example .env
-# 编辑 .env 文件，修改 NODE_RED_URL、NODE_RED_USER_DIR、MCP_PORT 等配置
+# 编辑 .env 文件，填写 NODE_RED_USERNAME、NODE_RED_PASSWORD、MCP_TRANSPORT=sse 等配置
 vim .env
 
 # 后台启动服务
@@ -97,36 +99,48 @@ vim .env
 
 ---
 
-### 步骤 3：AI 客户端联通配置
+### 步骤 3：Nginx 反向代理配置（穿透 aTrust / 防火墙）
 
-#### 方案 A：通过 SSE 模式连接 (跨机器/内网 Web/API)
+若服务器与客户端之间存在 aTrust（零信任）或防火墙限制了 3000 端口，可通过服务器已放行的 **80 端口** 进行反代：
 
-在 `.env` 中设置 `MCP_TRANSPORT=sse` 并启动服务后，MCP 会监听 `http://<服务器IP>:3000/sse`。
+在 Nginx 或 Nginx Proxy Manager 中添加反向代理规则，指向 `http://127.0.0.1:3000/`：
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:3000/;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header Connection '';
 
-**支持 SSE 的 AI 客户端配置**：
+    # 关键：关闭反向代理缓冲，确保 SSE 长连接实时流式推送
+    proxy_buffering off;
+    proxy_cache off;
+    chunked_transfer_encoding off;
+}
+```
+
+---
+
+### 步骤 4：AI 客户端联通配置
+
+无论是 Antigravity、Claude Desktop 还是 Cursor，只需配置 MCP 的 SSE 地址（例如通过 80 端口代理后的地址 `http://<服务器IP>/sse` 或未代理的 `http://<服务器IP>:3000/sse`）：
+
+**Antigravity / 本机全局配置 (`~/.gemini/config/mcp_config.json`)**：
 ```json
 {
   "mcpServers": {
     "node-red": {
-      "url": "http://192.168.1.100:3000/sse"
+      "url": "http://10.60.93.10/sse"
     }
   }
 }
 ```
 
-#### 方案 B：通过 SSH 隧道连接 (Claude Desktop / Cursor)
-
-若服务器仅开启了 SSH，本地 AI 客户端可直接配置通过 SSH 管道运行 stdio：
-
+**Claude Desktop / Cursor (`claude_desktop_config.json`)**：
 ```json
 {
   "mcpServers": {
     "node-red": {
-      "command": "ssh",
-      "args": [
-        "user@192.168.1.100",
-        "NODE_RED_URL=http://localhost:1880 node /opt/node-red-mcp/bin/node-red-mcp-server.mjs --transport stdio"
-      ]
+      "url": "http://10.60.93.10/sse"
     }
   }
 }
