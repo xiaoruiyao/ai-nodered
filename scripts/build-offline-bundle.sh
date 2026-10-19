@@ -19,9 +19,16 @@ TARGET_ARCHIVE="$DIST_DIR/${BUNDLE_NAME}.tar.gz"
 echo "📦 1. Ensuring production dependencies are installed..."
 npm install --omit=dev --no-audit --no-fund
 
-echo "📁 2. Packaging files into archive..."
+export COPYFILE_DISABLE=1
+
+TAR_CMD=(tar)
+if tar --help 2>&1 | grep -q -- '--no-xattrs'; then
+  TAR_CMD+=(--no-xattrs)
+fi
+
+echo "📁 2. Packaging files into archive (filtering macOS xattrs)..."
 # Exclude git, tests, dist itself, temp caches, and unnecessary files
-tar -czf "$TARGET_ARCHIVE" \
+"${TAR_CMD[@]}" -czf "$TARGET_ARCHIVE" \
   --exclude='.git' \
   --exclude='dist' \
   --exclude='.github' \
