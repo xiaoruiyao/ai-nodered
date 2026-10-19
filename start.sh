@@ -4,12 +4,14 @@ set -e
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$DIR"
 
-# Load .env if it exists
+# Load .env if it exists (Node.js also loads it automatically via dotenv)
 if [ -f .env ]; then
   echo "[node-red-mcp] Loading configuration from .env..."
+  set +e
   set -a
-  source .env
+  source .env 2>/dev/null || true
   set +a
+  set -e
 fi
 
 PID_FILE="$DIR/node-red-mcp.pid"
