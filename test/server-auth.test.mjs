@@ -119,6 +119,31 @@ test('server-auth - enforces MCP_API_KEY on SSE endpoints', async () => {
       body: '{}'
     });
     assert.equal(msgAuth.statusCode, 404);
+
+    // 8. Upload endpoint rejects unauthenticated upload with 401
+    const uploadUnauth = await makeRequest('http://127.0.0.1:3902/api/upload-package?filename=pkg-test-1.0.0.tar.gz', {
+      method: 'POST',
+      body: 'fake-tarball-content'
+    });
+    assert.equal(uploadUnauth.statusCode, 401);
+
+    // 9. Upload endpoint accepts valid authenticated upload
+    const dummyContent = 'dummy-tarball-binary-content';
+    const dummyHash = (await import('crypto')).default.createHash('sha256').update(dummyContent).digest('hex');
+
+    const uploadAuth = await makeRequest(`http://127.0.0.1:3902/api/upload-package?filename=pkg-test-1.0.0.tar.gz&sha256=${dummyHash}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${TEST_KEY}`,
+        'Content-Type': 'application/octet-stream'
+      },
+      body: dummyContent
+    });
+    assert.equal(uploadAuth.statusCode, 200);
+    const uploadRes = JSON.parse(uploadAuth.body);
+    assert.equal(uploadRes.status, 'ok');
+    assert.equal(uploadRes.package_id, 'pkg-test-1.0.0');
+    assert.equal(uploadRes.sha256, dummyHash);
   } finally {
     await new Promise(r => httpServer.close(r));
   }
