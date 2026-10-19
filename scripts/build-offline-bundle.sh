@@ -27,10 +27,9 @@ if tar --help 2>&1 | grep -q -- '--no-xattrs'; then
 fi
 
 echo "📁 2. Packaging files into archive (filtering macOS xattrs)..."
-# Exclude git, tests, dist itself, temp caches, and unnecessary files
+# Exclude git, tests, temp caches, and unnecessary files
 "${TAR_CMD[@]}" -czf "$TARGET_ARCHIVE" \
   --exclude='.git' \
-  --exclude='dist' \
   --exclude='.github' \
   --exclude='*.log' \
   --exclude='node-red-mcp.pid' \
