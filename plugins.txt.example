@@ -1,0 +1,27 @@
+# Node-RED 预装插件列表
+# 每行一个 npm 包名，可带版本号（如 node-red-node-mysql@1.0.3）
+# 以 # 开头的行为注释，空行会被忽略
+
+# ===== UI / 仪表盘 =====
+@flowfuse/node-red-dashboard
+
+# ===== 工业协议 =====
+node-red-contrib-modbus
+node-red-contrib-opcua
+node-red-contrib-s7
+node-red-contrib-cip-ethernet-ip
+node-red-contrib-open-protocol-desoutter
+
+# ===== 数据库 =====
+node-red-node-mysql
+node-red-contrib-postgresql
+node-red-node-sqlite
+
+# ===== 通用工具 =====
+node-red-contrib-cron-plus
+node-red-node-email
+node-red-contrib-buffer-parser
+node-red-contrib-tail-file
+
+# ===== 消息中间件 =====
+node-red-contrib-kafkajs

@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * CLI utility to package a Node-RED module offline with all dependencies
+ * CLI utility to package Node-RED module(s) offline with all dependencies
  * Run this on a machine with internet/npm access.
  */
 
 import { prepareOfflinePackage } from '../lib/installer/packager.mjs';
 import path from 'path';
+import fs from 'fs';
 
 const args = process.argv.slice(2);
 
@@ -15,44 +16,78 @@ if (args.length === 0 || args[0] === '-h' || args[0] === '--help') {
 Offline Package Bundler for Node-RED
 
 Usage:
+  # Package a single module:
   node bin/pack-module.mjs <module_name> [version] [output_dir]
 
-Example:
+  # Package multiple modules from a list file (e.g. plugins.txt):
+  node bin/pack-module.mjs --file <plugins_file> [output_dir]
+
+Examples:
   node bin/pack-module.mjs node-red-contrib-modbus 5.30.0 ./packages-pool
+  node bin/pack-module.mjs --file plugins.txt ./packages-pool
 `);
   process.exit(0);
 }
 
-const moduleName = args[0];
-const version = args[1] || 'latest';
-const outputDir = args[2] ? path.resolve(args[2]) : path.resolve(process.cwd(), 'packages-pool');
+let modulesToPack = [];
+let outputDir = path.resolve(process.cwd(), 'packages-pool');
 
-console.log(`\n📦 Packaging module: ${moduleName}@${version}`);
-console.log(`📁 Target directory: ${outputDir}`);
-console.log(`⏳ Resolving and downloading all dependencies via npm...`);
-
-try {
-  const result = await prepareOfflinePackage({
-    module: moduleName,
-    version,
-    outputDir
-  });
-
-  console.log(`\n✅ Package prepared successfully!`);
-  console.log(`----------------------------------------`);
-  console.log(`Package ID:    ${result.package_id}`);
-  console.log(`Package File:  ${result.package_file}`);
-  console.log(`Version:       ${result.version}`);
-  console.log(`SHA-256:       ${result.sha256}`);
-  console.log(`Size (bytes):  ${result.size_bytes}`);
-  console.log(`Native Deps:   ${result.has_native_deps ? 'YES' : 'NO'}`);
-  console.log(`----------------------------------------`);
-  console.log(`\nNext Steps:`);
-  console.log(`1. Copy ${result.archive_name} to your server's packages-pool directory.`);
-  console.log(`2. Instruct AI or MCP to install using:`);
-  console.log(`   package_id: "${result.package_id}"`);
-  console.log(`   sha256:     "${result.sha256}"\n`);
-} catch (err) {
-  console.error(`\n❌ Failed to prepare package:`, err.message);
-  process.exit(1);
+if (args[0] === '--file' || args[0] === '-f') {
+  const filePath = path.resolve(args[1]);
+  if (!fs.existsSync(filePath)) {
+    console.error(`Error: File not found: ${filePath}`);
+    process.exit(1);
+  }
+  if (args[2]) {
+    outputDir = path.resolve(args[2]);
+  }
+  const lines = fs.readFileSync(filePath, 'utf8').split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    // Parse name and optional version (e.g. node-red-node-mysql@1.0.3)
+    let moduleName = trimmed;
+    let version = 'latest';
+    const atIndex = trimmed.lastIndexOf('@');
+    if (atIndex > 0) {
+      moduleName = trimmed.slice(0, atIndex);
+      version = trimmed.slice(atIndex + 1);
+    }
+    modulesToPack.push({ module: moduleName, version });
+  }
+} else {
+  const moduleName = args[0];
+  const version = args[1] && !args[1].startsWith('/') && !args[1].startsWith('.') ? args[1] : 'latest';
+  if (args[2]) {
+    outputDir = path.resolve(args[2]);
+  } else if (args[1] && (args[1].startsWith('/') || args[1].startsWith('.'))) {
+    outputDir = path.resolve(args[1]);
+  }
+  modulesToPack.push({ module: moduleName, version });
 }
+
+console.log(`\n📦 Modules to package: ${modulesToPack.length}`);
+console.log(`📁 Target directory:   ${outputDir}\n`);
+
+const results = [];
+
+for (let i = 0; i < modulesToPack.length; i++) {
+  const item = modulesToPack[i];
+  console.log(`[${i + 1}/${modulesToPack.length}] Packaging ${item.module}@${item.version}...`);
+  try {
+    const res = await prepareOfflinePackage({
+      module: item.module,
+      version: item.version,
+      outputDir
+    });
+    console.log(`  ✓ Created ${res.archive_name} (SHA-256: ${res.sha256.slice(0, 16)}...)`);
+    results.push(res);
+  } catch (err) {
+    console.error(`  ✗ Failed: ${err.message}`);
+  }
+}
+
+console.log(`\n========================================`);
+console.log(`Finished: ${results.length}/${modulesToPack.length} packages created successfully.`);
+console.log(`Copy the generated .tar.gz files in "${outputDir}" to your server's packages-pool.`);
+console.log(`========================================\n`);
