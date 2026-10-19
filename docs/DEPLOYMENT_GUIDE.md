@@ -143,6 +143,14 @@ NODE_RED_RELOAD_COMMAND=systemctl restart nodered
 MCP_TRANSPORT=sse
 MCP_PORT=3000
 MCP_HOST=0.0.0.0
+
+# ==========================================
+# 6. MCP 安全访问控制 (Token 鉴权)
+# ==========================================
+# 强烈推荐在内网或生产环境配置，防止未授权客户端调用工控节点
+# 客户端需通过 Authorization: Bearer <key> 或 URL 参数 ?token=<key> 进行鉴权
+# 留空则为内网免密开放模式
+MCP_API_KEY=mcp_sec_c8aef67bfbf81d620abef3ef57c8febed024406f06af2249
 ```
 
 ---
@@ -273,25 +281,33 @@ nginx -t && nginx -s reload
 http://10.60.93.10/sse
 ```
 
+若在服务器 `.env` 中启用了 `MCP_API_KEY`，客户端需在请求头或 URL 参数中携带该 Token。
+
 ### 7.1 本地 Antigravity / Gemini CLI 配置
 编辑本机全局配置文件 `~/.gemini/config/mcp_config.json`：
 ```json
 {
   "mcpServers": {
     "node-red": {
-      "url": "http://10.60.93.10/sse"
+      "url": "http://10.60.93.10/sse",
+      "headers": {
+        "Authorization": "Bearer mcp_sec_c8aef67bfbf81d620abef3ef57c8febed024406f06af2249"
+      }
     }
   }
 }
 ```
 
 ### 7.2 Claude Desktop 配置
-编辑 `~/Library/Application Support/Claude/claude_desktop_config.json`（Mac）：
+编辑 `~/Library/Application Support/Claude/claude_desktop_config.json`（Mac）或 `%APPDATA%\Claude\claude_desktop_config.json`（Windows）：
 ```json
 {
   "mcpServers": {
     "node-red": {
-      "url": "http://10.60.93.10/sse"
+      "url": "http://10.60.93.10/sse",
+      "headers": {
+        "Authorization": "Bearer mcp_sec_c8aef67bfbf81d620abef3ef57c8febed024406f06af2249"
+      }
     }
   }
 }
@@ -302,7 +318,8 @@ http://10.60.93.10/sse
 2. 点击 **`Add New MCP Server`**：
    - **Name**: `node-red`
    - **Type**: `SSE`
-   - **URL**: `http://10.60.93.10/sse`
+   - **URL**: `http://10.60.93.10/sse?token=mcp_sec_c8aef67bfbf81d620abef3ef57c8febed024406f06af2249`
+   *(注：Cursor GUI 中若无独立 Headers 输入框，可直接在 URL 末尾追加 `?token=<key>` 鉴权参数)*
 
 ---
 

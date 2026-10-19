@@ -18,3 +18,4 @@ dist/
 packages-pool/
 *.pid
 *.zip
+.idea/

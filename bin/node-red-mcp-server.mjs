@@ -28,6 +28,7 @@ const options = {
   packagesPoolDir: process.env.PACKAGES_POOL_DIR,
   reloadCommand: process.env.NODE_RED_RELOAD_COMMAND,
   whitelist: process.env.MODULE_WHITELIST,
+  mcpApiKey: process.env.MCP_API_KEY,
   transportType: process.env.MCP_TRANSPORT,
   port: process.env.MCP_PORT,
   host: process.env.MCP_HOST,
@@ -47,6 +48,7 @@ Options:
   -U, --username <user>        Node-RED admin username (for auto login)
   -P, --password <pass>        Node-RED admin password (for auto login)
   -t, --token <token>          Node-RED API access token (or Bearer token)
+  -k, --api-key <key>          MCP Server API key for authenticating incoming clients
   -m, --transport <type>       Transport type: stdio or sse (default: stdio)
   -p, --port <port>            Port for SSE server (default: 3000)
       --host <host>            Host to bind for SSE server (default: 0.0.0.0)
@@ -72,6 +74,8 @@ for (let i = 0; i < args.length; i++) {
     options.nodeRedPassword = args[++i];
   } else if (arg === '--token' || arg === '-t') {
     options.nodeRedToken = args[++i];
+  } else if (arg === '--api-key' || arg === '-k') {
+    options.mcpApiKey = args[++i];
   } else if (arg === '--transport' || arg === '-m') {
     options.transportType = args[++i];
   } else if (arg === '--port' || arg === '-p') {

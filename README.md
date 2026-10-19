@@ -122,29 +122,38 @@ location / {
 
 ### 步骤 4：AI 客户端联通配置
 
-无论是 Antigravity、Claude Desktop 还是 Cursor，只需配置 MCP 的 SSE 地址（例如通过 80 端口代理后的地址 `http://<服务器IP>/sse` 或未代理的 `http://<服务器IP>:3000/sse`）：
+无论是 Antigravity、Claude Desktop 还是 Cursor，只需配置 MCP 的 SSE 地址。如果开启了 `MCP_API_KEY`，可在请求头或 URL 参数中携带该令牌：
 
 **Antigravity / 本机全局配置 (`~/.gemini/config/mcp_config.json`)**：
 ```json
 {
   "mcpServers": {
     "node-red": {
-      "url": "http://10.60.93.10/sse"
+      "url": "http://10.60.93.10/sse",
+      "headers": {
+        "Authorization": "Bearer mcp_sec_c8aef67bfbf81d620abef3ef57c8febed024406f06af2249"
+      }
     }
   }
 }
 ```
 
-**Claude Desktop / Cursor (`claude_desktop_config.json`)**：
+**Claude Desktop (`claude_desktop_config.json`)**：
 ```json
 {
   "mcpServers": {
     "node-red": {
-      "url": "http://10.60.93.10/sse"
+      "url": "http://10.60.93.10/sse",
+      "headers": {
+        "Authorization": "Bearer mcp_sec_c8aef67bfbf81d620abef3ef57c8febed024406f06af2249"
+      }
     }
   }
 }
 ```
+
+**Cursor (MCP SSE 配置)**：
+- **URL**: `http://10.60.93.10/sse?token=mcp_sec_c8aef67bfbf81d620abef3ef57c8febed024406f06af2249`
 
 ---
 
