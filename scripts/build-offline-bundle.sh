@@ -40,6 +40,7 @@ echo "📁 2. Packaging files into archive (filtering macOS xattrs)..."
   start.sh \
   stop.sh \
   status.sh \
+  update.sh \
   .env.example \
   package.json \
   README.md \
