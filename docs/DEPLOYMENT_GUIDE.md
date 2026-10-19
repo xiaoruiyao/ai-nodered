@@ -9,9 +9,20 @@
 2. [本地打包构建（联网开发机）](#2-本地打包构建联网开发机)
 3. [服务器端解压与配置（离线目标机）](#3-服务器端解压与配置离线目标机)
 4. [服务启停与运维管理](#4-服务启停与运维管理)
+   - [4.1 后台启动（Daemon 模式）](#41-后台启动daemon-模式)
+   - [4.2 检查运行状态与健康检查](#42-检查运行状态与健康检查)
+   - [4.3 查看实时日志](#43-查看实时日志)
+   - [4.4 停止服务](#44-停止服务)
+   - [4.5 一键安全原地升级（update.sh）](#45-一键安全原地升级updatesh)
+   - [4.6 代码级极速热更新（无需重传大包）](#46-代码级极速热更新无需重传大包)
 5. [Nginx / Nginx Proxy Manager 反向代理配置](#5-nginx--nginx-proxy-manager-反向代理配置)
 6. [深信服 aTrust 零信任网络穿透策略](#6-深信服-atrust-零信任网络穿透策略)
-7. [AI 客户端连接配置指南](#7-ai-客户端连接配置指南)
+7. [AI 客户端连接与 Token 安全鉴权配置](#7-ai-客户端连接与-token-安全鉴权配置)
+   - [7.1 Token 鉴权设计与安全原理](#71-token-鉴权设计与安全原理)
+   - [7.2 本地 Antigravity / Gemini CLI 配置](#72-本地-antigravity--gemini-cli-配置)
+   - [7.3 Claude Desktop 配置](#73-claude-desktop-配置)
+   - [7.4 Cursor 配置](#74-cursor-配置)
+   - [7.5 鉴权实测验证（命令行自检）](#75-鉴权实测验证命令行自检)
 8. [离线插件生命周期管理（制作、分发、安装）](#8-离线插件生命周期管理制作分发安装)
 9. [高频问题与排查手册（FAQ）](#9-高频问题与排查手册faq)
 
@@ -190,6 +201,31 @@ tail -f node-red-mcp.log
 ./stop.sh
 ```
 
+### 4.5 一键安全原地升级（update.sh）
+> [!IMPORTANT]
+> **更新版本切勿删除 `/opt/node-red-mcp` 文件夹！**
+> 本项目分发包中仅包含 `.env.example`，**压根不包含 `.env`**。直接原地解压覆盖同名文件，现有的 `.env` 配置、`packages-pool/` 离线插件库以及运行日志将 100% 完整保留。
+
+当上传了新构建的分发包（如 `node-red-mcp-bundle-v1.1.0.tar.gz`）至服务器 `/opt/` 后：
+```bash
+cd /opt/node-red-mcp
+
+# 方式 A：使用内置自动化更新脚本（自动停服 ➔ 原地覆盖解压 ➔ 后台重启 ➔ 健康检查）
+./update.sh
+
+# 方式 B：或单行命令手工执行
+./stop.sh && tar -xzf /opt/node-red-mcp-bundle-v1.1.0.tar.gz -C . && ./start.sh -d
+```
+
+### 4.6 代码级极速热更新（无需重传大包）
+若仅修改了轻量业务代码（如 `lib/server.mjs` 或 `bin/node-red-mcp-server.mjs`），生产依赖 `node_modules` 未变：
+1. 仅将修改后的单个 `.mjs` 文件传输并覆盖服务器对应文件；
+2. 执行重启即可立即生效（耗时约 1 秒）：
+   ```bash
+   cd /opt/node-red-mcp
+   ./stop.sh && ./start.sh -d
+   ```
+
 ---
 
 ## 5. Nginx / Nginx Proxy Manager 反向代理配置
@@ -274,16 +310,20 @@ nginx -t && nginx -s reload
 
 ---
 
-## 7. AI 客户端连接配置指南
+## 7. AI 客户端连接与 Token 安全鉴权配置
 
 通过 80 端口代理后，全局 MCP 统一连接地址为：
 ```text
 http://10.60.93.10/sse
 ```
 
-若在服务器 `.env` 中启用了 `MCP_API_KEY`，客户端需在请求头或 URL 参数中携带该 Token。
+### 7.1 Token 鉴权设计与安全原理
+为防止内网未授权客户端随意调用工控流程，MCP 服务支持基于 `MCP_API_KEY` 的统一访问控制：
+- **服务端配置**：在 `/opt/node-red-mcp/.env` 中配置 `MCP_API_KEY=<token>`（留空则为免密开放模式）。
+- **常数时间防时序攻击**：服务端比对算法采用 `crypto.timingSafeEqual` 防范侧信道分析。
+- **多协议自适应**：同时支持标准 HTTP Header（`Authorization: Bearer <key>` / `x-api-key: <key>`）与 URL 参数（`?token=<key>`）。
 
-### 7.1 本地 Antigravity / Gemini CLI 配置
+### 7.2 本地 Antigravity / Gemini CLI 配置
 编辑本机全局配置文件 `~/.gemini/config/mcp_config.json`：
 ```json
 {
@@ -298,7 +338,7 @@ http://10.60.93.10/sse
 }
 ```
 
-### 7.2 Claude Desktop 配置
+### 7.3 Claude Desktop 配置
 编辑 `~/Library/Application Support/Claude/claude_desktop_config.json`（Mac）或 `%APPDATA%\Claude\claude_desktop_config.json`（Windows）：
 ```json
 {
@@ -313,13 +353,34 @@ http://10.60.93.10/sse
 }
 ```
 
-### 7.3 Cursor 配置
+### 7.4 Cursor 配置
 1. 打开 Cursor 设置：`Settings` ➔ `Features` ➔ `MCP`。
 2. 点击 **`Add New MCP Server`**：
    - **Name**: `node-red`
    - **Type**: `SSE`
    - **URL**: `http://10.60.93.10/sse?token=mcp_sec_c8aef67bfbf81d620abef3ef57c8febed024406f06af2249`
    *(注：Cursor GUI 中若无独立 Headers 输入框，可直接在 URL 末尾追加 `?token=<key>` 鉴权参数)*
+
+### 7.5 鉴权实测验证（命令行自检）
+服务配置完毕后，可在任一连通内网的机器上通过终端执行自检：
+
+```bash
+# 1. 检查健康状态（确认已开启安全鉴权模式）
+curl -s http://10.60.93.10/health
+# 预期返回: {"status":"ok", ..., "authenticated":true}
+
+# 2. 未携带 Token 请求（验证 401 拦截）
+curl -i http://10.60.93.10/sse
+# 预期返回: HTTP/1.1 401 Unauthorized
+
+# 3. 携带 Bearer Token 请求（验证 Header 模式通行）
+curl -H "Authorization: Bearer mcp_sec_c8aef67bfbf81d620abef3ef57c8febed024406f06af2249" http://10.60.93.10/sse
+# 预期返回: event: endpoint \n data: /messages?sessionId=...
+
+# 4. 携带 Query 参数请求（验证 URL Token 模式通行）
+curl "http://10.60.93.10/sse?token=mcp_sec_c8aef67bfbf81d620abef3ef57c8febed024406f06af2249"
+# 预期返回: event: endpoint \n data: /messages?token=...&sessionId=...
+```
 
 ---
 
@@ -411,3 +472,13 @@ AI 客户端直接调用 MCP 工具执行安装：
 ### Q4: 连接 SSE 时 AI 响应迟钝或超时？
 - **原因**：Nginx 开启了反向代理缓冲（Proxy Buffering）。
 - **解决**：在 Nginx 配置或 NPM 的齿轮 ⚙️ (Advanced) 中加入 `proxy_buffering off;`，彻底关闭缓冲。
+
+### Q5: 更新版本需要删除整个 `/opt/node-red-mcp` 文件夹吗？
+- **回答**：**严禁删除整个文件夹！**
+- **原因**：删除文件夹会导致您配好的 `.env` 凭证、离线插件缓存库 `packages-pool/` 和运行日志全部丢失。
+- **解决**：打包产物中只有 `.env.example`，根本没有 `.env`。直接覆盖解压 `tar -xzf bundle.tar.gz -C .` 或使用 `./update.sh` 原地升级，同名文件被安全覆盖，配置和离线包 100% 完整保留。
+
+### Q6: 修改了 `.env` 后运行 `./start.sh -d` 为什么新配置没生效？
+- **原因**：旧进程仍在后台运行。`start.sh` 检测到现有 PID 正在运行，会打印 `Server is already running with PID ...` 并跳过启动。
+- **解决**：必须先停后起，执行 `./stop.sh && ./start.sh -d`，新环境变量才会加载生效。
+
