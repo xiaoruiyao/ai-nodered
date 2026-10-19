@@ -33,6 +33,7 @@ echo "📁 2. Packaging files into archive (filtering macOS xattrs)..."
   --exclude='.github' \
   --exclude='*.log' \
   --exclude='node-red-mcp.pid' \
+  --exclude='packages-pool/*.tar.gz' \
   bin/ \
   lib/ \
   node_modules/ \
