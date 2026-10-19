@@ -1,0 +1,38 @@
+{
+  "name": "ai-node-red-mcp",
+  "version": "1.1.0",
+  "description": "Model Context Protocol (MCP) server for Node-RED with offline package management",
+  "license": "MIT",
+  "main": "lib/server.mjs",
+  "type": "module",
+  "bin": {
+    "node-red-mcp-server": "./bin/node-red-mcp-server.mjs",
+    "pack-module": "./bin/pack-module.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "start": "node ./bin/node-red-mcp-server.mjs",
+    "start:sse": "node ./bin/node-red-mcp-server.mjs --transport sse --port 3000",
+    "bundle": "./scripts/build-offline-bundle.sh",
+    "pack-module": "node ./bin/pack-module.mjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "node-red",
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "llm",
+    "offline-install",
+    "air-gapped",
+    "iot"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.0",
+    "axios": "^1.9.0",
+    "dotenv": "^16.5.0",
+    "zod": "^3.24.4"
+  }
+}
