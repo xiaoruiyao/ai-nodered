@@ -19,3 +19,4 @@ packages-pool/
 *.pid
 *.zip
 .idea/
+scratch/

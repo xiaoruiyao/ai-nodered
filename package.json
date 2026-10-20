@@ -7,7 +7,9 @@
   "type": "module",
   "bin": {
     "node-red-mcp-server": "./bin/node-red-mcp-server.mjs",
-    "pack-module": "./bin/pack-module.mjs"
+    "pack-module": "./bin/pack-module.mjs",
+    "deploy-module": "./bin/deploy-module.mjs",
+    "call-mcp": "./bin/call-remote-mcp.mjs"
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",
