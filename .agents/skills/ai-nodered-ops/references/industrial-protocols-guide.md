@@ -66,21 +66,43 @@ In this production environment, Bosch weld timer controllers publish live weldin
 
 ---
 
-## 3. Open Protocol Tightening (`node-red-contrib-open-protocol-desoutter`)
+## 3. Open Protocol Tightening (Ingersoll Rand INSIGHTqcx & Atlas Copco)
 
-Industrial tightening protocol for torque controllers (Atlas Copco, Desoutter, Bosch Rexroth, Ingersoll Rand).
+Industrial tightening protocol for smart torque controllers (Ingersoll Rand, Atlas Copco, Desoutter, Bosch Rexroth).
 
-### Network & Ports:
+### Network & Target Controllers:
 - **Default Port**: `4545` (TCP)
-- **Node Types**:
-  - `desoutter-config`: Controller configuration (IP, Port, KeepAlive 10000ms, timeout 3000ms).
-  - `desoutter-node`: MID subscription & command dispatch.
+- **Active Controller**: `10.49.15.137:4545` (Ingersoll Rand INSIGHTqcx)
 
-### Core MIDs:
-- **MID 0001 / 0002**: Communication Start & Acknowledge.
-- **MID 0060 / 0061**: Last Tightening Result Subscription & Upload (Torque, Angle, OK/NOK status, Batch counter, Pset ID, VIN).
-- **MID 0040 / 0042**: Tool Enable / Disable control.
-- **MID 0070 / 0071**: Tightening Trace Curve Data (Torque-Angle / Torque-Time curves).
+### Core Protocol Framing & State Machine:
+1. **Header Framing**:
+   - Total length: 20 ASCII bytes header + payload + trailing `\0` (NUL delimiter).
+   - Length field: 4 ASCII digits representing total bytes *excluding* the trailing `\0`.
+   - Formula: `length = body.length + 4`, formatted as `f"{length:04d}"`.
+2. **Handshake Sequence**:
+   - `=> MID 0001` (rev: None): `00200001            \0`
+   - `<= MID 0002`: Controller returns system name `INSIGHTqcx`, protocol version, software revision.
+3. **Subscriptions**:
+   - `=> MID 0060` (rev: 001): `00200060001         \0` (Last Tightening Result Subscription).
+   - `<= MID 0005`: Controller accepts with payload `0060`.
+   - `=> MID 0008` (Generic Data Subscription) for `MID 0900` trace curves (trace types 001 angle, 002 torque):
+     Payload: `"0900001380" + 19 spaces + 10 spaces + "02001002"`.
+   - `<= MID 0005`: Controller accepts with payload `0900`.
+4. **Heartbeat Keepalive**:
+   - Every 5000ms: `=> MID 9999` (`00209999            \0`). Keeps the session from disconnecting.
+5. **Real-time Tightening Event (`MID 0061`)**:
+   - Controller pushes `MID 0061` on torque completion.
+   - **CRITICAL**: Receiver MUST immediately return `=> MID 0062` ACK (`00200062001         \0`).
+   - Fields parsed: Tightening ID (`01`), VIN (`02`), Pset ID (`06`), Batch Counter (`08`), Tightening Status (`09`: 1=OK, 0=NOK), Torque Actual (`15`: raw/100 -> Nm), Angle Actual (`19`: raw -> deg), Timestamp (`20`).
+6. **Trace Curve Event (`MID 0900`)**:
+   - Controller pushes `MID 0900` containing binary curve samples (16-bit signed BE).
+   - Receiver MUST immediately return `=> MID 0005` ACK with payload `0900`.
+   - Scale factor determined by parameter PID `02213` (divide) or `02214` (multiply).
+7. **Historical Result Query (`MID 0064`)**:
+   - `=> MID 0064` (rev: 001, data: `0000000000`) queries the latest stored historical result.
+   - Controller returns `<= MID 0065` containing the exact last completed tightening. Ideal for instant hydration on startup!
+8. **Native Engine Pattern**:
+   - For Ingersoll Rand INSIGHTqcx, standard Desoutter/Atlas nodes may fail during handshake or miss `MID 0062` acknowledgment timing. A dedicated, persistent Node.js `net.Socket` engine inside Node-RED provides 100% protocol adherence and zero-jitter event streaming.
 
 ---
 
