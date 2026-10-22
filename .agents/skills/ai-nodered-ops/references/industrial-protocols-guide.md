@@ -63,3 +63,33 @@ In this production environment, Bosch weld timer controllers publish live weldin
 - Extract `ForceCurve` for clamp pressure.
 - Check `measureState === 1` for OK weld, or `spatterAlarm = true` if spatter detected.
 - Forward directly to `ui_template_3d_robot` for real-time digital twin synchronization.
+
+---
+
+## 3. Open Protocol Tightening (`node-red-contrib-open-protocol-desoutter`)
+
+Industrial tightening protocol for torque controllers (Atlas Copco, Desoutter, Bosch Rexroth, Ingersoll Rand).
+
+### Network & Ports:
+- **Default Port**: `4545` (TCP)
+- **Node Types**:
+  - `desoutter-config`: Controller configuration (IP, Port, KeepAlive 10000ms, timeout 3000ms).
+  - `desoutter-node`: MID subscription & command dispatch.
+
+### Core MIDs:
+- **MID 0001 / 0002**: Communication Start & Acknowledge.
+- **MID 0060 / 0061**: Last Tightening Result Subscription & Upload (Torque, Angle, OK/NOK status, Batch counter, Pset ID, VIN).
+- **MID 0040 / 0042**: Tool Enable / Disable control.
+- **MID 0070 / 0071**: Tightening Trace Curve Data (Torque-Angle / Torque-Time curves).
+
+---
+
+## 4. Siemens S7 PLC (`node-red-contrib-s7`)
+
+- **Default Port**: `102` (ISO-on-TCP / RFC 1006)
+- **Node Types**: `s7 endpoint`, `s7 in`, `s7 out`
+- **S7-1200 / S7-1500 Configuration Rules**:
+  - Rack: `0`, Slot: `1` (S7-300 uses Slot 2).
+  - TIA Portal: MUST disable "Optimized Block Access" on target DB block.
+  - TIA Portal: MUST enable "Permit access with PUT/GET communication from remote partner" in CPU Protection & Security.
+- **Addressing Syntax**: `DB<Num>,WORD<Offset>`, `DB<Num>,REAL<Offset>`, `DB<Num>,DINT<Offset>`, `DB<Num>,X<Byte>.<Bit>`.
