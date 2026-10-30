@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { createServer } from '../lib/server.mjs';
 
 function makeRequest(url, options = {}) {
@@ -146,5 +149,49 @@ test('server-auth - enforces MCP_API_KEY on SSE endpoints', async () => {
     assert.equal(uploadRes.sha256, dummyHash);
   } finally {
     await new Promise(r => httpServer.close(r));
+  }
+});
+
+test('HTTP request failures do not terminate the server', async () => {
+  const temporaryDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mcp-http-test-'));
+  const notADirectory = path.join(temporaryDir, 'not-a-directory');
+  fs.writeFileSync(notADirectory, 'file');
+  const server = createServer({
+    transportType: 'sse', port: 3903, host: '127.0.0.1',
+    packagesPoolDir: path.join(notADirectory, 'packages')
+  });
+  const { httpServer } = await server.start();
+  try {
+    const unusualHost = await makeRequest('http://127.0.0.1:3903/health', {
+      headers: { Host: 'invalid host' }
+    });
+    assert.equal(unusualHost.statusCode, 200);
+
+    const invalidUrl = await makeRequest('http://127.0.0.1:3903/', {
+      path: 'http://[invalid'
+    });
+    assert.equal(invalidUrl.statusCode, 400);
+
+    const failedUpload = await makeRequest('http://127.0.0.1:3903/api/upload-package?filename=test.tgz', {
+      method: 'POST', body: 'test'
+    });
+    assert.equal(failedUpload.statusCode, 500);
+    const health = await makeRequest('http://127.0.0.1:3903/health');
+    assert.equal(health.statusCode, 200);
+  } finally {
+    await new Promise(r => httpServer.close(r));
+    fs.rmSync(temporaryDir, { recursive: true, force: true });
+  }
+});
+
+test('listen failures reject startup instead of crashing the process', async () => {
+  const occupied = http.createServer();
+  await new Promise(resolve => occupied.listen(0, '127.0.0.1', resolve));
+  const port = occupied.address().port;
+  try {
+    const server = createServer({ transportType: 'sse', port, host: '127.0.0.1' });
+    await assert.rejects(server.start(), { code: 'EADDRINUSE' });
+  } finally {
+    await new Promise(resolve => occupied.close(resolve));
   }
 });

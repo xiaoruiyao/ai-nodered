@@ -1,0 +1,16 @@
+[Unit]
+Description=Node-RED MCP server
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/node-red-mcp
+ExecStart=/usr/bin/env node /opt/node-red-mcp/bin/node-red-mcp-server.mjs --transport sse
+Restart=on-failure
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
